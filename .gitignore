@@ -184,3 +184,12 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+################
+# TALKING J
+################
+archive/
+slurm_logs/
+machinefile.*
+experiments/
