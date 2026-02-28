@@ -3,8 +3,9 @@ import os
 
 import torch
 import torch.nn as nn
+import argparse
 
-from models.resnet import resnet18
+from models.resnet import resnet18, resnet34, resnet50
 from utils import (
     train,
     evaluate,
@@ -15,17 +16,64 @@ from utils import (
     EPOCHS
 )
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="ResNet-X")
+    parser.add_argument("--model")
+    parser.add_argument("--outdir")
+    parser.add_argument("--run_name")
+    return parser.parse_args()
+
+def build_model(name:str, device):
+    if name == "resnet18":
+        return resnet18(device=device)
+    if name == "resnet34":
+        return resnet34(device=device)
+    if name == "resnet50":
+        return resnet50(device=device)
+    raise ValueError(f"Unknown model: ${name}")
+
+def count_params(model):
+    total = sum(p.numel() for p in model.parameters())
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    non_trainable = total - trainable
+    return total, trainable, non_trainable
+
+def log_param_table(model, name="model"):
+    total, trainable, non_trainable = count_params(model)
+    print("=" * 60)
+    print(f"Parameter summary for: {name}")
+    print(f"Total params      : {total:,}")
+    print(f"Trainable params  : {trainable:,}")
+    print(f"Non-trainable     : {non_trainable:,}")
+    print("=" * 60)
+
 def main():
-    print("Starting default training.")
+    args = parse_args()
     torch.manual_seed(0)
 
+    run_dir = os.path.join(args.outdir, args.run_name)
+    os.makedirs(run_dir, exist_ok=True)
+
+    log_file = os.path.join(run_dir, f"{args.model}_train.log")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers= [
+            logging.FileHandler(log_file),
+            logging.StreamHandler()
+        ],
+        force=True
+    )
+
+    print("Starting default training.")
     device = get_device()
     logging.info(f'Using device: {device}')
 
     trainloader, testloader = get_dataset_loader()
 
     # Model: ResNet18
-    model = resnet18(device=device)
+    model = build_model(args.model, device=device)
+    log_param_table(model, name=args.model)
     model.to(device)
 
     # Loss, optimizer, scheduler
@@ -34,7 +82,9 @@ def main():
     scheduler = get_scheduler(optimizer, training_length=len(trainloader))
 
     # Resume from checkpoint if exists
-    checkpoint_path = 'default_resnet18_cifar10_checkpoint.pth'
+    checkpoint_path = os.path.join(run_dir, "checkpoint.pth")
+    best_model_path = os.path.join(run_dir, "best_model.pth")
+
     start_epoch = 1
     best_acc = 0.0
     if os.path.isfile(checkpoint_path):
@@ -52,7 +102,7 @@ def main():
 
         if acc > best_acc:
             best_acc = acc
-            torch.save(model.state_dict(), 'default_ghostnetv3_cifar10.pth')
+            torch.save(model.state_dict(), best_model_path)
             logging.info(f'New best accuracy: {best_acc:.2f}%, model saved.')
 
         # Save checkpoint to resume training
