@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import timm
-
+import argparse
 import models.ghostnetv3 as ghostnetv3
 from models.resnet import resnet50, resnet34, resnet18
 from loss.distillation_loss import DistillationLoss
@@ -19,22 +19,46 @@ from utils import (
     EPOCHS
 )
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Training w/ Teacher for GhostNetV3")
+    parser.add_argument("--student_width", type=float, default=1.0)
+    parser.add_argument("--outdir", type=str, default="experiments")
+    parser.add_argument("--run_name", type=str, default="Train_w_teacher_gnd1.0x")
+    parser.add_argument("--teacher_run", type=str, default="experiments/resnet")
+    parser.add_argument("--teacher_ckpt", type=str, default="best_model.pth")
+
+    return parser.parse_args()
+
 def main():
+    args = parse_args()
+    width = args.student_width
+    run_dir = os.path.join(args.outdir, args.run_name)
+    os.makedirs(run_dir, exist_ok=True)
+
+    log_file = os.path.join(run_dir, "train.log")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[logging.FileHandler(log_file), logging.StreamHandler()],
+        force=True
+    )
+
     print("Starting Teaching Assistant training.")
     torch.manual_seed(0)
+
     device = get_device()
     logging.info(f'Using device: {device}')
     trainloader, testloader = get_dataset_loader()
 
     # Define distillation stages: (student_name, init_student_fn, teacher_name, init_teacher_fn)
     stages = [
-        ('resnet34', lambda: resnet34(pretrained=True, device=device), 'resnet50', lambda: resnet50(pretrained=True, device=device)),
-        ('resnet18', lambda: resnet18(pretrained=True, device=device), 'resnet34', lambda: resnet34(pretrained=True, device=device)),
-        ('ghostnetv3', lambda: timm.create_model('ghostnetv3', width=1.0, num_classes=10), 'resnet18', lambda: resnet18(pretrained=True, device=device)),
+        ('resnet34', lambda: resnet34(pretrained=False, device=device), 'resnet50', lambda: resnet50(pretrained=False, device=device)),
+        ('resnet18', lambda: resnet18(pretrained=False, device=device), 'resnet34', lambda: resnet34(pretrained=False, device=device)),
+        ('ghostnetv3', lambda: timm.create_model('ghostnetv3', width=width, num_classes=10), 'resnet18', lambda: resnet18(pretrained=False, device=device)),
     ]
     
     # Master checkpoint for overall progress
-    master_checkpoint_path = 'teacher_assistant_master_checkpoint.pth'
+    master_checkpoint_path = f'teacher_assistant_master_checkpoint_gnd_{width}.pth'
     start_stage = 0
     completed_stages = {}
     
@@ -56,6 +80,13 @@ def main():
 
         # Load teacher from previous stage if available
         teacher = init_teacher()
+        if stage_idx == 0:
+            teacher_path = os.path.join(args.teacher_run, f"{teacher_name}_seed0", args.teacher_ckpt) #experiments/resnet50, resnet50_seed0, best_method.ckpt
+            if not os.path.exists(teacher_path):
+                raise FileNotFoundError(f"Teacher checkpiunt did not found {teacher_path}")
+            teacher.load_state_dict(torch.load(teacher_path, map_location=device))
+            logging.info(f"Loaded teacher {teacher_name} from {teacher_path}")
+        
         if stage_idx > 0:
             prev_student_name = stages[stage_idx - 1][0]
             prev_checkpoint = f"assistant_{prev_student_name}.pth"
