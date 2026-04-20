@@ -40,7 +40,7 @@ if __name__ == "__main__":
     is_slurm = "SLURM_JOB_ID" in os.environ
     
     default_epochs = 200 if is_slurm else 2
-    default_batch_size = 256 if is_slurm else 64
+    default_batch_size = 1024 if is_slurm else 64
     
     # Dynamically find teachers (Local or HF Fallback)
     available_teachers = get_available_teachers()
