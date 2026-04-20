@@ -9,8 +9,6 @@ def get_available_teachers(outdir="experiments"):
     # Mapping of logical names to fallback HF model IDs (timm-compatible)
     FALLBACKS = {
         "ResNet50": "hf_hub:edadaltocg/resnet50_cifar10",
-        "DenseNet161": "hf_hub:edadaltocg/densenet161_cifar10", # Example
-        "VGG13": "hf_hub:edadaltocg/vgg13_bn_cifar10",       # Example
     }
     
     # Mapping of logical names to expected local paths (under outdir)

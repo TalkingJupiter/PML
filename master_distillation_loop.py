@@ -5,7 +5,7 @@ from setup_teachers import get_available_teachers
 def run_experiment(exp, epochs=2, batch_size=64):
     run_name = f"FeatureKD_from_{exp['name']}"
     cmd = [
-        "uv", "run", "training_with_feature_kd_resnet50_small.py",
+        "uv", "run", "training_feature_kd_resnet50_small.py",
         "--run_name", run_name,
         "--epochs", str(epochs),
         "--batch_size", str(batch_size),

@@ -10,6 +10,9 @@ from tqdm import tqdm
 from scheduler.warumup_cosine_lr import WarmupCosineLR
 from torch.utils.data import DataLoader
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 def _make_divisible(v, divisor, min_value=None):
     """
     Ensures that all layers have a channel number that is divisible by divisor.
