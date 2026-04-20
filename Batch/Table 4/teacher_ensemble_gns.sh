@@ -1,21 +1,21 @@
 #!/bin/bash 
-#SBATCH --job-name=train_w_teach_gns_1.6x
+#SBATCH --job-name=ensemble_teach_gns_2.8x
 #SBATCH --partition=h100
+#SBATCH --gres=gpu:1 
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=24:00:00
-#SBATCH --output=slurm_logs/Table3/%x-%A_%a.out
-#SBATCH --error=slurm_logs/Table3/%x-%A_%a.err
+#SBATCH --output=slurm_logs/Table4/%x-%A_%a.out
+#SBATCH --error=slurm_logs/Table4/%x-%A_%a.err
 
 # WIDTHS=(1.6 1.6 1.6)
 # NOTE: For some reason the array job submission break the experiment. So I submitted manually
-WIDTH=1.6
+WIDTH=2.8
 #${WIDTHS[$SLURM_ARRAY_TASK_ID]}
-
 source ~/.bashrc
 conda activate pmlcuda
 
-RUN_NAME="train_w_teacher_gns${WIDTH}x"
+RUN_NAME="ensemble_teacher_gns${WIDTH}x"
 
 echo "=== Job Info ==="
 echo "Array ID: $SLURM_ARRAY_TASK_ID"
@@ -31,9 +31,7 @@ nvidia-smi || true
 # ---- Run ----
 
 
-python training_with_teacher_assistant_small.py \
-  --teacher_run experiments/resnet \
-  --teacher_ckpt best_model.pth \
+python training_with_teacher_ensemble_small.py \
   --student_width "${WIDTH}" \
   --outdir experiments \
   --run_name "${RUN_NAME}"

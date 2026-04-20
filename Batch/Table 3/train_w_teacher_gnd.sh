@@ -11,7 +11,8 @@
 # WIDTH=${WIDTHS[$SLURM_ARRAY_TASK_ID]}
 
 ENVNAME="pmlcuda"
-
+source ~/.bashrc
+conda activate pmlcuda
 RUN_NAME="train_w_teacher_gnd_1.0x"
 
 echo "=== Job Info ==="

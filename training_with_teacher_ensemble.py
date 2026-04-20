@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import timm
+import argparse
 
 import models.ghostnetv3 as ghostnetv3
 from models.resnet import resnet50
@@ -22,6 +23,13 @@ from utils import (
     EPOCHS
 )
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Ensamble GhostNetV3")
+    parser.add_argument("--student_width", type=float, default=1.0)
+    parser.add_argument("--outdir", type=str, default="experiments")
+    parser.add_argument("--run_name", type=str, default="Train_teacher_ensemble_gnd_1.0x")
+
+    return parser.parse_args()
 # Add ensemble teacher wrapper
 class EnsembleTeacher(nn.Module):
     def __init__(self, teachers):
@@ -34,6 +42,19 @@ class EnsembleTeacher(nn.Module):
 
 # Replace main with ensemble distillation
 def main():
+    args = parse_args()
+
+    run_dir = os.path.join(args.outdir, args.run_name)
+    os.makedirs(run_dir, exist_ok=True)
+
+    log_file = os.path.join(run_dir, "train.log")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[logging.FileHandler(log_file), logging.StreamHandler()],
+        force=True
+    )
+
     print("Starting Teaching Ensemble training.")
     torch.manual_seed(0)
     device = get_device()
@@ -41,15 +62,23 @@ def main():
     trainloader, testloader = get_dataset_loader()
 
     # Initialize student
-    student = timm.create_model('ghostnetv3', width=1.0, num_classes=10)
+    student = timm.create_model('ghostnetv3', width=args.student_width, num_classes=10)
     init_weights_kaiming(student)
     student.to(device)
 
     # Initialize teachers
     teacher_inits = [densenet161, vgg13_bn, resnet50, inception_v3]
+    teacher_ckpts = [
+        "experiments/densenet/densenet161_seed0/best_model.pth",
+        "experiments/vgg13/vgg13_bn_seed0/best_model.pth",
+        "experiments/resnet/resnet50_seed0/best_model.pth",
+        "experiments/inceptionv3/inception_v3_seed0/best_model.pth"
+    ]
+
     teachers = []
-    for init in teacher_inits:
-        tm = init(pretrained=True, num_classes=10)
+    for init, ckpt in zip(teacher_inits, teacher_ckpts):
+        tm = init(pretrained=False, num_classes=10)
+        tm.load_state_dict(torch.load(ckpt, map_location=device))
         tm.to(device)
         tm.eval()
         teachers.append(tm)
@@ -63,10 +92,10 @@ def main():
     scheduler = get_scheduler(optimizer, training_length=len(trainloader))
 
     # Resume from checkpoint if exists
-    checkpoint_path = 'ensemble_ghostnetv3_cifar10_checkpoint.pth'
+    checkpoint_path = 'ensemble_ghostnetv3_gnd_cifar10_checkpoint.pth'
     start_epoch = 1
     best_acc = 0.0
-    ckpt_path = 'ensemble_ghostnetv3_cifar10.pth'
+    ckpt_path = 'ensemble_ghostnetv3_gnd_cifar10.pth'
     
     if os.path.isfile(checkpoint_path):
         checkpoint = torch.load(checkpoint_path, map_location=device)
