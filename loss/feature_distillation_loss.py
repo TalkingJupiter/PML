@@ -37,16 +37,16 @@ class FeatureDistillationLoss(nn.Module):
         ])
 
     def forward(self, student_logits, teacher_logits, student_features, teacher_features, targets):
-        T = self.temperature
-        
-        # 1. Logit Distillation Loss
-        ce_loss = F.cross_entropy(student_logits, targets)
-        kd_loss = self.kl_div(
-            F.log_softmax(student_logits / T, dim=1),
-            F.softmax(teacher_logits / T, dim=1)
-        ) * (T * T)
-        
-        logit_loss = self.alpha * ce_loss + (1 - self.alpha) * kd_loss
+        # 1. Logit/Classification Loss (only if alpha is not None)
+        logit_loss = 0
+        if self.alpha is not None:
+            T = self.temperature
+            ce_loss = F.cross_entropy(student_logits, targets)
+            kd_loss = self.kl_div(
+                F.log_softmax(student_logits / T, dim=1),
+                F.softmax(teacher_logits / T, dim=1)
+            ) * (T * T)
+            logit_loss = self.alpha * ce_loss + (1 - self.alpha) * kd_loss
 
         # 2. Feature Distillation Loss
         feature_loss = 0

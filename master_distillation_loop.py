@@ -1,15 +1,22 @@
 import subprocess
 import os
+import argparse
 from setup_teachers import get_available_teachers
 
-def run_experiment(exp, epochs=2, batch_size=64):
+def run_experiment(exp, epochs=2, batch_size=64, strict=False):
     run_name = f"FeatureKD_from_{exp['name']}"
+    if strict:
+        run_name += "_Strict"
+        
     cmd = [
         "uv", "run", "training_feature_kd_resnet50_small.py",
         "--run_name", run_name,
         "--epochs", str(epochs),
         "--batch_size", str(batch_size),
     ]
+    
+    if strict:
+        cmd.append("--strict")
     
     if exp["teacher_run"]:
         cmd.extend(["--teacher_run", exp["teacher_run"]])
@@ -25,6 +32,10 @@ def run_experiment(exp, epochs=2, batch_size=64):
         print(f"!!! Experiment {run_name} failed with error: {e}")
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--strict", action="store_true", help="Strictly internal feature distillation")
+    args_loop = parser.parse_args()
+
     # Check if we are in a SLURM environment or local
     is_slurm = "SLURM_JOB_ID" in os.environ
     
@@ -39,7 +50,7 @@ if __name__ == "__main__":
         exit(1)
         
     for exp in available_teachers:
-        run_experiment(exp, epochs=default_epochs, batch_size=default_batch_size)
+        run_experiment(exp, epochs=default_epochs, batch_size=default_batch_size, strict=args_loop.strict)
         
     # After all experiments, generate plots
     print("\n>>> Generating Comparison Plots...")

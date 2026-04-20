@@ -35,6 +35,7 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=EPOCHS)
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--teacher_accuracy", type=float, default=None, help="Baseline accuracy of the teacher")
+    parser.add_argument("--strict", action="store_true", help="Strictly internal feature distillation (no labels/logits)")
     return parser.parse_args()
 
 def _load_state_dict_flexible(model: torch.nn.Module, ckpt_obj):
@@ -155,9 +156,13 @@ def main():
     ]
     t_channels = [256, 512, 1024, 2048]
 
+    alpha = None if args.strict else 0.7
+    if args.strict:
+        logging.info("STRICT MODE: Training strictly on internal feature outputs.")
+
     criterion = FeatureDistillationLoss(
         s_channels, t_channels, 
-        temperature=5.0, alpha=0.7, beta=args.beta
+        temperature=5.0, alpha=alpha, beta=args.beta
     ).to(device)
 
     # Important: optimizer must include projection parameters
@@ -173,6 +178,7 @@ def main():
     # Metadata for plotting
     from utils import count_parameters
     student_params = count_parameters(student)
+    teacher_params = count_parameters(teacher)
     
     # We'll assume teacher accuracy is passed or known. For now, we'll try to find it.
     teacher_acc = 0.0
@@ -214,6 +220,7 @@ def main():
         "teacher_name": args.teacher_model if args.teacher_model else args.teacher_run,
         "teacher_accuracy": teacher_acc,
         "student_parameters": student_params,
+        "teacher_parameters": teacher_params,
         "history": history
     }
     with open(os.path.join(run_dir, "history.json"), "w") as f:
