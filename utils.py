@@ -10,6 +10,18 @@ from tqdm import tqdm
 from scheduler.warumup_cosine_lr import WarmupCosineLR
 from torch.utils.data import DataLoader
 
+def _make_divisible(v, divisor, min_value=None):
+    """
+    Ensures that all layers have a channel number that is divisible by divisor.
+    """
+    if min_value is None:
+        min_value = divisor
+    new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
+    # Make sure that round down does not go down by more than 10%.
+    if new_v < 0.9 * v:
+        new_v += divisor
+    return new_v
+
 def init_weights_kaiming(model):
     for m in model.modules():
         if isinstance(m, nn.Conv2d):
