@@ -3,14 +3,15 @@ import os
 import argparse
 from setup_teachers import get_available_teachers
 
-def run_experiment(exp, epochs=2, batch_size=64, strict=False):
-    run_name = f"FeatureKD_from_{exp['name']}"
+def run_experiment(exp, width, epochs=2, batch_size=64, strict=False):
+    run_name = f"FeatureKD_from_{exp['name']}_{width}x"
     if strict:
         run_name += "_Strict"
         
     cmd = [
         "uv", "run", "training_feature_kd_resnet50_small.py",
         "--run_name", run_name,
+        "--student_width", str(width),
         "--epochs", str(epochs),
         "--batch_size", str(batch_size),
     ]
@@ -23,7 +24,7 @@ def run_experiment(exp, epochs=2, batch_size=64, strict=False):
     elif exp["teacher_model"]:
         cmd.extend(["--teacher_model", exp["teacher_model"]])
         
-    print(f"\n>>> Running Experiment: {run_name} (Source: {exp['source']})")
+    print(f"\n>>> Running Experiment: {run_name} (Width: {width}, Source: {exp['source']})")
     print(f">>> Command: {' '.join(cmd)}")
     
     try:
@@ -42,6 +43,9 @@ if __name__ == "__main__":
     default_epochs = 200 if is_slurm else 2
     default_batch_size = 1024 if is_slurm else 64
     
+    # Testing Matrix: Widths
+    WIDTHS = [1.0, 1.3, 1.6, 1.9, 2.2, 2.8, 3.4]
+    
     # Dynamically find teachers (Local or HF Fallback)
     available_teachers = get_available_teachers()
     
@@ -50,7 +54,8 @@ if __name__ == "__main__":
         exit(1)
         
     for exp in available_teachers:
-        run_experiment(exp, epochs=default_epochs, batch_size=default_batch_size, strict=args_loop.strict)
+        for width in WIDTHS:
+            run_experiment(exp, width, epochs=default_epochs, batch_size=default_batch_size, strict=args_loop.strict)
         
     # After all experiments, generate plots
     print("\n>>> Generating Comparison Plots...")

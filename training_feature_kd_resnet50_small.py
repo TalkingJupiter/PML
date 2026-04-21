@@ -217,6 +217,7 @@ def main():
     import json
     history_data = {
         "run_name": args.run_name,
+        "student_width": args.student_width,
         "teacher_name": args.teacher_model if args.teacher_model else args.teacher_run,
         "teacher_accuracy": teacher_acc,
         "student_parameters": student_params,
