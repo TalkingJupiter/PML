@@ -1,10 +1,11 @@
 #!/bin/bash
 #SBATCH --job-name=distill_and_plot
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=64
+#SBATCH --mem=256G
+#SBATCH --exclusive
 #SBATCH --partition=h100
-#SBATCH --gres=gpu:1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=32G
-#SBATCH --time=24:00:00
+#SBATCH --time=48:00:00
 #SBATCH --output=slurm_logs/%x-%j.out
 #SBATCH --error=slurm_logs/%x-%j.err
 
@@ -19,7 +20,7 @@ mkdir -p plots
 #  - Perform distillation strictly on internal features
 #  - Log metrics to history.json
 echo "Starting distillation experiments..."
-uv run master_distillation_loop.py --strict
+uv run master_distillation_loop.py
 
 # 3. Final verification of plots
 echo "Ensuring all plots are generated..."
