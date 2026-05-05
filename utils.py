@@ -10,6 +10,21 @@ from tqdm import tqdm
 from scheduler.warumup_cosine_lr import WarmupCosineLR
 from torch.utils.data import DataLoader
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+def _make_divisible(v, divisor, min_value=None):
+    """
+    Ensures that all layers have a channel number that is divisible by divisor.
+    """
+    if min_value is None:
+        min_value = divisor
+    new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
+    # Make sure that round down does not go down by more than 10%.
+    if new_v < 0.9 * v:
+        new_v += divisor
+    return new_v
+
 def init_weights_kaiming(model):
     for m in model.modules():
         if isinstance(m, nn.Conv2d):
@@ -165,9 +180,11 @@ def get_dataset_loader(resize=None):
 
     # Dynamically set num_workers and pin_memory based on device
     device = get_device()
-    num_workers = 0 if device == 'mps' else NUM_WORKERS
+    cpu_count = os.cpu_count() or 1
+    num_workers = 0 if device == 'mps' else min(NUM_WORKERS, cpu_count)
     persistent_workers = False if num_workers == 0 else True
     pin_memory = True if device == 'cuda' else False
+    prefetch_factor = 2 if num_workers > 0 else None
 
     # Datasets and loaders
     trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
@@ -175,10 +192,11 @@ def get_dataset_loader(resize=None):
     trainloader = DataLoader(
         trainset,
         batch_size=BATCH_SIZE,
-        shuffle=False,
+        shuffle=True,  # Changed to True for proper training
         num_workers=num_workers,
         pin_memory=pin_memory,
-        persistent_workers=persistent_workers
+        persistent_workers=persistent_workers,
+        prefetch_factor=prefetch_factor
     )
     testloader = DataLoader(
         testset,
@@ -186,7 +204,8 @@ def get_dataset_loader(resize=None):
         shuffle=False,
         num_workers=num_workers,
         pin_memory=pin_memory,
-        persistent_workers=persistent_workers
+        persistent_workers=persistent_workers,
+        prefetch_factor=prefetch_factor
     )
 
     return trainloader, testloader
